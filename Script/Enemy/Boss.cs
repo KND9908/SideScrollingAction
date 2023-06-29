@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using UnityEditor;
+using DG.Tweening;
 
 public class Boss : EnemyBase
 {
@@ -10,131 +11,193 @@ public class Boss : EnemyBase
     //設定されたパラメータをインスペクター上から見れるようにする
     [CustomEditor(typeof(EnemyBase))]
 #endif
+    // エネミーのGameObject
     [SerializeField]
-    private GameObject NowMode;
+    [Tooltip("エネミーのGameObject")]
+    private GameObject _NowMode;
 
-    private bool AttackAction = false; //攻撃中か否か
-    private bool VisualInversion = false;
+    // 攻撃中か否か
+    private bool _AttackAction = false;
 
-    private float Time = 0;
-    private bool CallOnceBossFinFlag = false;
+    // キャラクターの移動方向が右か否か
+    private bool _VisualInversion = false;
+
+    // 攻撃開始からの時間
+    private float _Time = 0;
+
+    // _BossDeadメソッドを一回だけ呼ぶためのフラグ
+    private bool _CallOnceBossFinFlag = false;
+
+    // コンポーネント
     private Animator _Animator => GetComponent<Animator>();
 
-    private float Movevec = 0;
+    // キャラクターの移動量
+    private float _Movevec = 0;
 
     [SerializeField]
     [Tooltip("移動のvelocityの量の大きさ")]
-    private float MoveVelocity = 0;
+    private float _MoveVelocity = 0;
     //RigidBodyに付加するVelocity
-    Vector3 SetVelocity;
+    private Vector3 _SetVelocity;
+
+    //現在のアクション
+    Tween _NowAction;
 
     private void Update()
     {
-        if (!JumpNow && !DeathFlag)
-            Gravity();
+        //死亡フラグが立っているなら処理を行わない
+        if (!_JumpNow && !_DeathFlag)
+            //Gravity();
 
-        VisualInversionCheck();
+        //反転処理
+        _VisualInversionCheck();
 
-        if (!ScrGamemanager.KeyLock)
+        //現在ロック中でなければ、以下攻撃モーションを行う
+        if (!_CompGamenager.KeyLock)
         {
-            if (!AttackAction)
-                Time += UnityEngine.Time.deltaTime;
-            const float waittime = 2.0f;
             //現在行動中でなければ、以下攻撃モーションを行う
-            if (!AttackAction && Time > waittime)
+            if (!_AttackAction)
+                _Time += UnityEngine.Time.deltaTime;
+            const float WAITTIME = 2.0f;
+            //現在行動中でなければ、以下攻撃モーションを行う
+            if (!_AttackAction && _Time > WAITTIME)
             {
-                AttackMoveJudge();
+                _AttackMoveJudge();
 
                 GodModeCheck();
             }
         }
-        if (MaxHP < 0 && !CallOnceBossFinFlag)
+        if (_MaxHP < 0 && !_CallOnceBossFinFlag)
         {
-            BossDead();
+            _BossDead();
         }
 
-        SetVelocity.y = OnGround ? 0 : GravityVelocity;
+        //_SetVelocity.y = _OnGround ? 0 : _GravityVelocity;
 
-        _Rigidbody.velocity = new Vector3(SetVelocity.x, SetVelocity.y, 0);
+        //_Rigidbody.velocity = new Vector3(_SetVelocity.x, _SetVelocity.y, 0);
     }
     //どの攻撃をするか決定
-    private void AttackMoveJudge()
+    private void _AttackMoveJudge()
     {
-        Time = 0;
-        AttackAction = true;
-        int rnd = Random.Range(1, 2);//番号によってランダムに攻撃動作する
+        _Time = 0;
+        _AttackAction = true;
+        int rnd = Random.Range(1, 3);//番号によってランダムに攻撃動作する
         if (rnd == 1)
-            StartCoroutine(MoveToPosition(Player.transform.position.x));
+            StartCoroutine(MoveToPosition(_Player.transform.position.x));
+        else if (rnd == 2)
+            StartCoroutine(JumpToPosition(_Player.transform.position.x));
     }
-    protected void BossDead()
+    private void _BossDead()
     {
-        CallOnceBossFinFlag = true;
+        //何かアクション中ならキャンセルする
+        if (_NowAction != null)
+            _NowAction.Kill();
+        _CallOnceBossFinFlag = true;
+
     }
-    //指定したポイントまで移動
+
+    /// <summary>
+    /// 指定した位置まで移動するコルーチン
+    /// </summary>
+    /// <param name="pos">移動先の位置</param>
     public IEnumerator MoveToPosition(float pos)
     {
-        _Animator.SetBool("IsRun", true);
+        // プレイヤーが敵の左側にいるか右側にいるかを判定し、移動方向を決定する
+        Vector3 moveDir = (pos - transform.position.x > 0) ? Vector3.right : Vector3.left;
 
-        bool keeploop = false;
-        while (!keeploop)
+        // 指定された位置へ移動する前に少し後ろに下がる
+        _NowAction = transform.DOMoveX(transform.position.x + ((-1) * moveDir.x * transform.localScale.x * 0.3f), 0.5f).OnComplete(() =>
         {
-            Movevec = pos - transform.position.x < 0 ? -1 : 1;
-            SetVelocity.x = Movevec * MoveVelocity;
+            // 指定された位置まで移動する
+            _NowAction = transform.DOMoveX(pos, Mathf.Abs(pos - transform.position.x) / _MoveVelocity).OnComplete(() =>
+            {
+                // 攻撃が完了したことを示すフラグを立てる
+                _AttackAction = false;
+            });
+        });
 
-            if ((pos > transform.position.x && Movevec < 0)
-            || (pos <= transform.position.x && Movevec > 0))
-                keeploop = true;
-            yield return null;
-        }
-        _Animator.SetBool("IsRun", false);
-        AttackAction = false;
         yield break;
     }
-    private void VisualInversionCheck()
+
+
+
+    private void _VisualInversionCheck()
     {
-        if (Movevec < 0)
+        if (_Movevec < 0)
         {
-            VisualInversion = true;
+            _VisualInversion = true;
         }
-        else if (Movevec > 0)
+        else if (_Movevec > 0)
         {
-            VisualInversion = false;
+            _VisualInversion = false;
         }
         //プレイヤーの向きを変える
-        if (VisualInversion)
+        if (_VisualInversion)
         {
-            NowMode.transform.rotation = Quaternion.Euler(0, 180, 0);
+            _NowMode.transform.rotation = Quaternion.Euler(0, 180, 0);
         }
         else
         {
-            NowMode.transform.rotation = Quaternion.Euler(0, 0, 0);
+            _NowMode.transform.rotation = Quaternion.Euler(0, 0, 0);
         }
     }
     protected override void Gravity()
     {
-        //重力加速度は正弦波で表現したいため実装
-        if (!JumpNow)
+        //重力加速度はRigidBodyの既定のものではなく正弦波で表現したいため実装
+        if (!_JumpNow)
         {
-            if (GravityFrameCnt < 90)
-                GravityFrameCnt += 3;
-            GravityVelocity = GravityPower * -1 * Mathf.Sin(GravityFrameCnt * Mathf.Deg2Rad);
+            if (_GravityFrameCnt < 90)
+                _GravityFrameCnt += 3;
+            _GravityVelocity = _GravityPower * -1 * Mathf.Sin(_GravityFrameCnt * Mathf.Deg2Rad);
         }
         else
         {
-            GravityFrameCnt = 0;
+            _GravityFrameCnt = 0;
         }
     }
+
+    //指定位置までジャンプするコルーチン
+    public IEnumerator JumpToPosition(float pos)
+    {
+        //ジャンプ中フラグを立てる
+        _JumpNow = true;
+
+        //ジャンプの高さを決定
+        float jumpHeight = 0.5f;
+
+        //ジャンプの時間を決定
+        float jumpTime = 0.5f;
+
+        //ジャンプの初速を決定
+        float jumpVelocity = jumpHeight / jumpTime;
+
+        //ジャンプの初速を与える
+        _SetVelocity.y = jumpVelocity;
+
+        //ジャンプの初速を与えた後、重力を与える
+        //yield return new WaitForSeconds(jumpTime);
+        _SetVelocity.y = _GravityVelocity;
+
+        //ジャンプ中フラグを折る
+        _JumpNow = false;
+
+        // 攻撃が完了したことを示すフラグを立てる
+        _AttackAction = false;
+
+        yield break;
+    }
+
 
     private void OnTriggerEnter(Collider other)
     {
         //ダメージ処理を行った後一定時間無敵にする
         if (other.gameObject.CompareTag("guntret"))
         {
-            if (!GodMode)
+            if (!_GodMode)
             {
                 int Damage = other.GetComponent<Guntret>().GetSetAttackPower;
-                MaxHP -= Damage;
-                GodMode = true;
+                _MaxHP -= Damage;
+                _GodMode = true;
                 VisibleDamage(Damage);
             }
         }
@@ -144,7 +207,7 @@ public class Boss : EnemyBase
     {
         if (col.gameObject.CompareTag("Ground"))
         {
-            OnGround = true;
+            _OnGround = true;
         }
     }
 
@@ -152,7 +215,7 @@ public class Boss : EnemyBase
     {
         if (col.gameObject.CompareTag("Ground"))
         {
-            OnGround = false;
+            _OnGround = false;
         }
     }
 }

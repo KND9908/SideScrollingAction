@@ -22,15 +22,11 @@ public class Stage : MonoBehaviour
        //プレイヤーが所持している鍵アイテムと、対象オブジェクトの所持している鍵の値が一致した場合、解放
     }
 
-    //転がる岩
-    void korokolock()
+    //転がる岩を生成する処理
+    void CreateRollingRock()
     {
+        //転がる岩を生成する
 
     }
-    //岩を降らす
-    void falllock()
-    {
-
-    }
-
+    
 }

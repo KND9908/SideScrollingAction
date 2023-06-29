@@ -11,7 +11,7 @@ public class PlayerHitCollider : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         //ダメージ処理を行った後一定時間無敵にする
-        if (other.CompareTag("enemy"))
+        if (other.CompareTag("enemy") || other.CompareTag("enemy_attack"))
         {
             //ノックバック
             if (!_Player.GetSetGodMode)

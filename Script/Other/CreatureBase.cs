@@ -7,76 +7,76 @@ public class CreatureBase : MonoBehaviour
 {
     [Tooltip("オブジェクトのHP")]
     [SerializeField]
-    protected int MaxHP = 0;
+    protected int _MaxHP = 0;
     //スポナーから値を設定する用のGetSet（基本Setしか使わないのでGetはついでに実装）
-    public int GetSetMaxHP { get { return MaxHP; } set { MaxHP = value; } }
+    public int GetSetMaxHP { get => _MaxHP; set => _MaxHP = value; }
 
     [SerializeField]
     [Tooltip("プレイヤーの現在のHP")]
-    protected int NowHP;
-    public int GetSetNowLife { get { return NowHP; } set { NowHP = value; } }
+    protected int _NowHP;
+    public int GetSetNowLife { get => _NowHP; set => _NowHP = value; }
 
     [Tooltip("移動方向")]
     [SerializeField]
-    protected float MoveSpeed = 0.1f;
-    public float GetSetMoveVec { get { return MoveSpeed; } set { MoveSpeed = value; } }
+    protected float _MoveSpeed = 0.1f;
+    public float GetSetMoveVec { get => _MoveSpeed; set => _MoveSpeed = value; }
 
     [Tooltip("無敵時間　インスペクターからのみ編集できるようにしてます")]
     [SerializeField]
-    protected float GodModeTime = 0.1f;
+    protected float _GodModeTime = 0.1f;
 
     //無敵状態フラグ
-    protected bool GodMode = false;
-    public bool GetSetGodMode { get { return GodMode; } set { GodMode = value; } }
+    protected bool _GodMode = false;
+    public bool GetSetGodMode { get => _GodMode; set => _GodMode = value; }
 
     //地面にいるかの確認
-    protected bool OnGround = false;
-    public bool GetSetOnGround { get { return OnGround; } set { OnGround = value; } }
+    protected bool _OnGround = false;
+    public virtual bool GetSetOnGround { get => _OnGround; set => _OnGround = value; }
 
-    protected float DamageWaitTime = 0;
+    protected float _DamageWaitTime = 0;
 
-    protected bool DeathFlag = false;
-    public bool GetSetDeathFlag { get { return DeathFlag; } set { DeathFlag = value; } }
+    protected bool _DeathFlag = false;
+    public bool GetSetDeathFlag { get => _DeathFlag; set => _DeathFlag = value;}
 
     //重力を正弦波でゆっくり加速させるためのカウント
-    protected int GravityFrameCnt = 0;
+    protected int _GravityFrameCnt = 0;
     //重力の大きさ（RigidBody.velocityに設定することを想定)
-    protected float GravityVelocity = 0;
+    protected float _GravityVelocity = 0;
     //ジャンプ中かの判定
-    protected bool JumpNow = false;
+    protected bool _JumpNow = false;
 
     [Tooltip("ゲームマネージャー　インスペクターからの操作は基本デバッグでしか使わない想定")]
     [SerializeField]
-    protected GameObject GameManager;
-    public GameObject GetSetGameManager { get { return GameManager; } set { GameManager = value; } }
-    protected Gamemanager ScrGamemanager => GameManager.GetComponent<Gamemanager>();
+    protected GameObject _GameManager;
+    public GameObject GetSetGameManager { get=> _GameManager; set => _GameManager = value;}
+    protected Gamemanager _CompGamenager => _GameManager.GetComponent<Gamemanager>();
 
     [Tooltip("オブジェクトにかかる重力の重さ")]
     [SerializeField]
-    protected float GravityPower = 9.8f;
+    protected float _GravityPower = 9.8f;
     protected virtual void Gravity()
     {
-        if (!OnGround)
+        if (!_OnGround)
         {
-            if (GravityFrameCnt < 90)
-                GravityFrameCnt += 3;
-            GravityVelocity = GravityPower * -1 * Mathf.Sin(GravityFrameCnt * Mathf.Deg2Rad);
+            if (_GravityFrameCnt < 90)
+                _GravityFrameCnt += 3;
+            _GravityVelocity = _GravityPower * -1 * Mathf.Sin(_GravityFrameCnt * Mathf.Deg2Rad);
         }
         else
         {
-            GravityFrameCnt = 0;
+            _GravityFrameCnt = 0;
         }
     }
     protected virtual void GodModeCheck()
     {
         //無敵状態の解除チェック
-        if (GodMode)
+        if (_GodMode)
         {
-            DamageWaitTime += UnityEngine.Time.deltaTime;
+            _DamageWaitTime += UnityEngine.Time.deltaTime;
             //無敵時間解除
-            if (DamageWaitTime > GodModeTime)
+            if (_DamageWaitTime > _GodModeTime)
             {
-                GodMode = false;
+                _GodMode = false;
             }
         }
     }

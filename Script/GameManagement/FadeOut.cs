@@ -15,6 +15,19 @@ public class FadeOut : MonoBehaviour
     {
         image = GetComponent<Image>();
     }
+
+    void Update()
+    {
+        //現在のシーンがタイトルの場合
+        if (SceneManager.GetActiveScene().name == "Title")
+        {
+            //タイトル画面でBを押したらフェードアウト
+            if (Input.GetButtonDown("Jump"))
+            {
+                FadeOutCall(GotoScene);
+            }
+        }
+    }
     public void FadeOutCall(string str)
     {
         GotoScene = str;

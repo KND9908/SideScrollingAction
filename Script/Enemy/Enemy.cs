@@ -1,4 +1,5 @@
 using System.Collections;
+using System;
 using UnityEngine;
 using UnityEditor;
 using TMPro;
@@ -9,137 +10,117 @@ public class Enemy : EnemyBase
     //設定されたパラメータをインスペクター上から見れるようにする
     [CustomEditor(typeof(EnemyBase))]
 #endif
-    [Tooltip("敵オブジェクトの中の画像データ")]
+    [Tooltip("敵オブジェクトの中の画像オブジェクト")]
     [SerializeField]
-    private GameObject EnemyImage;
-    public GameObject GetSetEnemyImage { get { return EnemyImage; } set { EnemyImage = value; } }
+    private GameObject _EnemyImage;
+    public GameObject SetEnemyImage { set => _EnemyImage = value; }
 
     [Tooltip("特定オブジェクトの範囲を往復する動きをさせる場合、該当の床オブジェクトを指定")]
     [SerializeField]
-    protected GameObject OnObject;
-    public GameObject GetSetOnObject { get { return OnObject; } set { OnObject = value; } }
+    protected GameObject _OnObject;
+    public GameObject SetOnObject { set => _OnObject = value; }
 
     [Tooltip("遠距離攻撃用の弾　遠距離攻撃をする敵のみ実装")]
     [SerializeField]
-    protected GameObject Bullet;
+    protected GameObject _Bullet;
 
-    public GameObject GetSetBullet { get { return Bullet; } set { Bullet = value; } }
+    public GameObject SetBullet { set => _Bullet = value; }
 
     [Tooltip("敵の動きを指定するコード")]
     [SerializeField]
-    protected int ActionCode = 0;
-    public int GetSetActionCode { get { return ActionCode; } set { ActionCode = value; } }
+    protected int _ActionCode = 0;
+    public int SetActionCode { set => _ActionCode = value; }
 
     [Tooltip("敵がドロップするアイテム")]
     [SerializeField]
-    protected GameObject DropItem;
-    public GameObject GetSetDropItem { get { return DropItem; } set { DropItem = value; } }
+    protected GameObject _DropItem;
+    public GameObject SetDropItem { set => _DropItem = value; }
 
     [Tooltip("アイテムのドロップ確率")]
     [SerializeField]
-    protected int DropItemProbability;
-    public int GetSetDropItemProbability { get { return DropItemProbability; } set { DropItemProbability = value; } }
+    protected int _DropItemProbability;
+    public int SetDropItemProbability { set => _DropItemProbability = value; }
 
-    //敵の表情を切り替える時に表示/非表示するオブジェクト 魔法使いの敵の画像データの構造に合わせ実装
-    //今後アニメーションによる切り替えに修正する予定
-    [SerializeField]
-    protected GameObject Magician_Eye_Normal1;
-    [SerializeField]
-    protected GameObject Magician_Eye_Normal2;
-    [SerializeField]
-    protected GameObject Magician_Eye_Normal3;
-    [SerializeField]
-    protected GameObject Magician_Eye_Attack;
-    [SerializeField]
-    protected GameObject Magician_Hand_Normal;
-    [SerializeField]
-    protected GameObject Magician_Hand_Attack;
-    public void SetMagicianData(GameObject eye1, GameObject eye2,
-    GameObject eye3, GameObject eyeatk, GameObject handnormal, GameObject Handattack)
+    private float _BulletShotTime = 0;
+
+    private BoxCollider _BoxCollider => GetComponent<BoxCollider>();
+    private Animator animator;
+    private Bullet _ScrBullet;
+
+    //倒された事を通知するイベント
+    public event Action OnDead;
+    private void Start()
     {
-        Magician_Eye_Normal1 = eye1;
-        Magician_Eye_Normal2 = eye2;
-        Magician_Eye_Normal3 = eye3;
-        Magician_Eye_Attack = eyeatk;
-        Magician_Hand_Attack = Handattack;
-        Magician_Hand_Normal = handnormal;
+        if (_ActionCode == 3)
+        {
+            animator = GetComponent<Animator>();
+        }
     }
-    private BoxCollider _BoxCollider =>GetComponent<BoxCollider>();
-    private Bullet ScrBullet;
-
-    private bool ActionNow = false;
     private void Update()
     {
-        if (!DeathFlag)
+        if (!_DeathFlag)
         {
-            if (GravityPower > 0)
+            //重力を加えるかの判定
+            if (_GravityPower > 0 && _ActionCode != 3)
             {
                 Gravity();
-                float y_velocity = OnGround ? 0 : GravityVelocity;
+                float y_velocity = _OnGround ? 0 : _GravityVelocity;
                 _Rigidbody.velocity = new Vector3(_Rigidbody.velocity.x, y_velocity, 0);
             }
-            if (!ScrGamemanager.KeyLock && !ActionNow) { ActionNow = true; MovePattern(); }
 
-            if (MaxHP <= 0)
+            //死亡判定
+            if (_MaxHP <= 0)
             {
-                DeathFlag = true;
+                _DeathFlag = true;
                 StartCoroutine(Dead());
             }
         }
         //無敵状態の解除チェック
         GodModeCheck();
     }
+    private void FixedUpdate()
+    {
+        MovePattern();
+    }
 
     private void MovePattern()
     {
-        if (ActionCode == 1)
-
-            StartCoroutine(MovePattern1());
-        else if (ActionCode == 2)
+        if (_ActionCode == 1)
+            MovePattern1();
+        else if (_ActionCode == 2)
             StartCoroutine(MovePattern2());
-        else if (ActionCode == 3)
-            StartCoroutine(MovePattern3());
-        else if (ActionCode == 4)
-            StartCoroutine(MovePattern4());
+        else if (_ActionCode == 3)
+            MovePattern3();
+        else if (_ActionCode == 4)
+            MovePattern4();
     }
 
     //パターン１:ひたすらプレイヤーのほうへ突進してくる敵
-    private IEnumerator MovePattern1()
+    private void MovePattern1()
     {
-        bool goal = false;
-        float gotoposi = Player.transform.position.x;
-        float movespeedX = MoveSpeed;
-
+        float gotoposi = _Player.transform.position.x;
+        float movespeedx = _MoveSpeed;
         if (this.transform.position.x >= gotoposi)
         {
-            movespeedX *= -1;
+            movespeedx *= -1;
         }
-        int dezchg = movespeedX < 0 ? 0 : 180;
+        int dezchg = movespeedx < 0 ? 0 : 180;
         transform.rotation = Quaternion.Euler(0, dezchg, 0);
-        while (!goal)
-        {
-            _Rigidbody.MovePosition(transform.position + new Vector3(movespeedX, 0, 0));
-            if ((movespeedX < 0 && gotoposi > transform.position.x) || (movespeedX >= 0 && gotoposi <= transform.position.x))
-            {
-                goal = true;
-            }
-            yield return null;
-        }
-        yield break;
+        _Rigidbody.MovePosition(transform.position + new Vector3(movespeedx, 0, 0));
     }
     //パターン２:特定の床の上のみを反復移動する処理（浮遊する）
     private IEnumerator MovePattern2()
     {
-        float gotoposi = Player.transform.position.x;
-        float movespeedX = MoveSpeed;
+        float gotoposi = _Player.transform.position.x;
+        float movespeedX = _MoveSpeed;
         float cnt = 0;
         Vector3 basepos = transform.position;
-        GameObject subrazer = Bullet;
+        GameObject subrazer = _Bullet;
 
-        while (MaxHP > 0)
+        while (_MaxHP > 0)
         {
-            if (this.transform.position.x < OnObject.transform.position.x + OnObject.transform.lossyScale.x / 2
-    && transform.position.x > OnObject.transform.position.x - OnObject.transform.lossyScale.x / 2)
+            if (this.transform.position.x < _OnObject.transform.position.x + _OnObject.transform.lossyScale.x / 2
+    && transform.position.x > _OnObject.transform.position.x - _OnObject.transform.lossyScale.x / 2)
             {
 
             }
@@ -158,119 +139,85 @@ public class Enemy : EnemyBase
         yield break;
     }
     //パターン3:特定の床の上のみを反復移動する処理(一つ目の敵用)
-    private IEnumerator MovePattern3()
+    private void MovePattern3()
     {
-        float gotoposi = Player.transform.position.x;
-        float movespeedX = MoveSpeed;
+        float gotoposi = _Player.transform.position.x;
         Vector3 basepos = transform.position;
-        float time = 0;
-        GameObject bullet = Bullet;
+        GameObject bullet = _Bullet;
         int dezchg = 0;
 
-        bool isAttack = false;
-        bool isNormal = true;
-        while (MaxHP > 0)
+        if (_MaxHP > 0)
         {
-            if (Mathf.Abs(Player.transform.position.x - transform.position.x) < 10 && Mathf.Abs(Player.transform.position.y - transform.position.y) < 10)
+            //プレイヤー発見時（攻撃態勢）
+            if (Mathf.Abs(_Player.transform.position.x - transform.position.x) < 10 && Mathf.Abs(_Player.transform.position.y - transform.position.y) < 10)
             {
-                if (!isAttack)
+                //表情変化
+                if (!animator.GetBool("isAttack"))
                 {
-                    isAttack = true;
-                    if (isNormal)
-                    {
-                        isNormal = false;
-                        Magician_Eye_Normal1.SetActive(false);
-                        Magician_Eye_Normal2.SetActive(false);
-                        Magician_Eye_Normal3.SetActive(false);
-                        Magician_Hand_Normal.SetActive(false);
-                    }
-                    Magician_Eye_Attack.SetActive(true);
-                    Magician_Hand_Attack.SetActive(true);
+                    animator.SetBool("isAttack", true);
                 }
-                time += Time.deltaTime;
-                if (time > 1.5f)
+                _BulletShotTime += Time.deltaTime;
+                if (_BulletShotTime > 1.5f)
                 {
-                    time = 0;
-                    bullet = Instantiate(Bullet);
-                    ScrBullet = bullet.GetComponent<Bullet>();
-                    ScrBullet.Player = Player.GetComponent<Player>();
+                    _BulletShotTime = 0;
+                    bullet = Instantiate(_Bullet);
+                    _ScrBullet = bullet.GetComponent<Bullet>();
+                    _ScrBullet.Player = _Player.GetComponent<Player>();
                     bullet.transform.position = transform.position;
                 }
 
-                dezchg = Player.transform.position.x - transform.position.x < 0 ? 0 : 180;
+                dezchg = _Player.transform.position.x - transform.position.x < 0 ? 0 : 180;
                 transform.rotation = Quaternion.Euler(0, dezchg, 0);
-                yield return null;
             }
             else
             {
-                time = 0;
-                if (!isNormal)
+                _BulletShotTime = 0;
+                if (animator.GetBool("isAttack"))
                 {
-                    isNormal = true;
-                    if (isAttack)
-                    {
-                        isAttack = false;
-                        Magician_Eye_Attack.SetActive(false);
-                        Magician_Hand_Attack.SetActive(false);
-                    }
-                    Magician_Eye_Normal1.SetActive(true);
-                    Magician_Eye_Normal2.SetActive(true);
-                    Magician_Eye_Normal3.SetActive(true);
-                    Magician_Hand_Normal.SetActive(true);
-
-
+                    animator.SetBool("isAttack", false);
                 }
-                if (this.transform.position.x < OnObject.transform.position.x + OnObject.transform.lossyScale.x / 2
-&& transform.position.x > OnObject.transform.position.x - OnObject.transform.lossyScale.x / 2)
+                if (this.transform.position.x < _OnObject.transform.position.x + _OnObject.transform.lossyScale.x / 2
+&& transform.position.x > _OnObject.transform.position.x - _OnObject.transform.lossyScale.x / 2)
                 {
 
                 }
                 else
                 {
-                    movespeedX *= -1;
+                    _MoveSpeed *= -1;
                 }
-                //
-                dezchg = movespeedX < 0 ? 0 : 180;
+                dezchg = _MoveSpeed < 0 ? 0 : 180;
                 transform.rotation = Quaternion.Euler(0, dezchg, 0);
-                _Rigidbody.MovePosition(transform.position + new Vector3(movespeedX, 0, 0));
-                yield return null;
+                _Rigidbody.MovePosition(transform.position + new Vector3(_MoveSpeed, 0, 0));
             }
         }
-        yield break;
     }
-    //パターン２:特定の床の上のみを反復移動する処理（浮遊しない）
-    private IEnumerator MovePattern4()
+    //パターン4:特定の床の上のみを反復移動する処理（浮遊しない）
+    private void MovePattern4()
     {
-        float movespeedX = MoveSpeed;
-        float cnt = 0;
         Vector3 basepos = transform.position;
-        GameObject subrazer = Bullet;
+        GameObject subrazer = _Bullet;
 
-        while (MaxHP > 0)
-        {
-            if (this.transform.position.x + transform.lossyScale.x / 2 < OnObject.transform.position.x + OnObject.transform.lossyScale.x / 2
-    && transform.position.x - transform.lossyScale.x / 2 > OnObject.transform.position.x - OnObject.transform.lossyScale.x / 2)
+        if (_MaxHP > 0)
+        {   //Dotween使った方が楽かも
+            if (this.transform.position.x + transform.lossyScale.x / 2 <= _OnObject.transform.position.x + _OnObject.transform.lossyScale.x / 2
+    && transform.position.x - transform.lossyScale.x / 2 >= _OnObject.transform.position.x - _OnObject.transform.lossyScale.x / 2)
             {
 
             }
             else
             {
-                movespeedX *= -1;
+                _MoveSpeed *= -1;
             }
-            cnt = cnt + (1.0f / 10.0f);
-            if (cnt > 360)
-                cnt = 0;
-            int dezchg = movespeedX < 0 ? 0 : 180;
+            int dezchg = _MoveSpeed < 0 ? 0 : 180;
             transform.rotation = Quaternion.Euler(0, dezchg, 0);
-            _Rigidbody.MovePosition(transform.position + new Vector3(movespeedX, 0, 0));
-            yield return null;
+            _Rigidbody.MovePosition(transform.position + new Vector3(_MoveSpeed, 0, 0));
         }
-        yield break;
     }
 
     private IEnumerator Dead()
     {
         //やられた時の動作を描画
+        OnDead?.Invoke();
         _Rigidbody.useGravity = true;
         _BoxCollider.enabled = false;//当たり判定を消滅させる
         _Rigidbody.constraints = RigidbodyConstraints.None;
@@ -284,9 +231,9 @@ public class Enemy : EnemyBase
         {
             Quaternion rot = Quaternion.Euler(0, 0, 30);
             // 現在の自身の回転の情報を取得する。
-            Quaternion q = EnemyImage.transform.rotation;
+            Quaternion q = _EnemyImage.transform.rotation;
             // 合成して、自身に設定
-            EnemyImage.transform.rotation = q * rot;
+            _EnemyImage.transform.rotation = q * rot;
 
             yield return null;
         }
@@ -300,22 +247,22 @@ public class Enemy : EnemyBase
         //ダメージ処理を行った後一定時間無敵にする
         if (other.gameObject.CompareTag("guntret"))
         {
-            if (!GodMode)
+            if (!_GodMode)
             {
                 int Damage = other.GetComponent<Guntret>().GetSetAttackPower;
-                MaxHP -= Damage;
-                GodMode = true;
+                _MaxHP -= Damage;
+                _GodMode = true;
                 VisibleDamage(Damage);
             }
         }
     }
     private void ItemDropJudge()
     {
-        int rnd = UnityEngine.Random.Range(1, GetSetDropItemProbability + 1);
-        if (GetSetDropItemProbability == rnd)
+        int rnd = UnityEngine.Random.Range(1, _DropItemProbability + 1);
+        if (_DropItemProbability == rnd)
         {
             GameObject dropitem;
-            dropitem = (GameObject)Instantiate(GetSetDropItem, this.transform.position, Quaternion.identity);
+            dropitem = (GameObject)Instantiate(_DropItem, this.transform.position, Quaternion.identity);
         }
     }
     private void OnCollisionEnter(Collision col)
@@ -329,7 +276,7 @@ public class Enemy : EnemyBase
     {
         if (col.gameObject.CompareTag("Ground"))
         {
-            OnGround = false;
+            _OnGround = false;
         }
         if (col.gameObject.CompareTag("Player"))
         {
@@ -340,7 +287,7 @@ public class Enemy : EnemyBase
     {
         if (col.gameObject.CompareTag("Ground"))
         {
-            OnGround = true;
+            _OnGround = true;
         }
     }
 }

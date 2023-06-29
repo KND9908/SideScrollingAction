@@ -5,55 +5,55 @@ using UnityEngine;
 public class AreaCensor : MonoBehaviour
 {
     [SerializeField]
-    private GameObject TextField;
+    private GameObject _ObjLabelController;
 
     [SerializeField]
-    private GameObject GameManager;
+    private GameObject _GameManager;
 
     [SerializeField]
-    private GameObject JsonReader;
+    private GameObject _JsonReader;
     [SerializeField]
     int CallCodeNum = 0;
-    private Gamemanager ScrGamemanager => GameManager.GetComponent<Gamemanager>();
-    private LabelController ScrLabelController => TextField.GetComponent<LabelController>();
-    private JsonReader ScrJsonReader => JsonReader.GetComponent<JsonReader>();
+    private Gamemanager _CompGamemanager => _GameManager.GetComponent<Gamemanager>();
+    private LabelController _CompLabelController => _ObjLabelController.GetComponent<LabelController>();
+    private JsonReader _CompJsonReader => _JsonReader.GetComponent<JsonReader>();
 
     [Tooltip("強制イベントか否か")]
     [SerializeField]
-    private bool Constrain = false;
+    private bool _Constrain = false;
 
     [Tooltip("イベント後に遷移させたいシーンがあるならここにシーン名を記述する")]
     [SerializeField]
-    private string NextScene = "";
+    private string _NextScene = "";
 
     //イベントを読んだか判定するフラグ
-    private bool ReadFlag = false;
-    private void CallEvent()
+    private bool _ReadFlag = false;
+    private void _CallEvent()
     {
-        if (ScrLabelController.ActionNow)
+        if (_CompLabelController.isAction)
         {
-            if (Constrain)
+            if (_Constrain)
             {
-                ScrLabelController.InterruptEvent = true;
+                _CompLabelController.InterruptEvent = true;
                 //台詞表示処理が生じているならそれが終わるまでWaitする
                 StartCoroutine(WaitCallevent());
             }
             else
             {
-                ScrGamemanager.StackWords = CallCodeNum;
+                _CompGamemanager.StackWords = CallCodeNum;
             }
         }
         else
         {
-            if (Constrain)
+            if (_Constrain)
             {
                 //JsonReaderにCallする台詞の範囲をチェックさせる
-                ScrGamemanager.StackWords = 0;
-                global::JsonReader.Singleton.CensorCallevent(CallCodeNum, NextScene, Constrain);
+                _CompGamemanager.StackWords = 0;
+                global::JsonReader.Singleton.Callevent(CallCodeNum, _NextScene, _Constrain);
             }
             else
             {
-                ScrGamemanager.StackWords = CallCodeNum;
+                _CompGamemanager.StackWords = CallCodeNum;
             }
         }
     }
@@ -62,22 +62,23 @@ public class AreaCensor : MonoBehaviour
     {
         if (other.gameObject.CompareTag("Player"))
         {
-            if (!ReadFlag)
+            if (!_ReadFlag)
             {
-                ReadFlag = true;
-                CallEvent();
+                _ReadFlag = true;
+                _CallEvent();
             }
         }
     }
 
     IEnumerator WaitCallevent()
     {
-        while (ScrLabelController.ActionNow)
+        //台詞表示処理が生じているならそれが終わるまでWaitする
+        while (_CompLabelController.isAction)
         {
             yield return null;
         }
-        ScrJsonReader.CensorCallevent(CallCodeNum, NextScene, Constrain);
-        ScrGamemanager.StackWords = 0;
+        _CompJsonReader.Callevent(CallCodeNum, _NextScene, _Constrain);
+        _CompGamemanager.StackWords = 0;
         yield break;
     }
 }

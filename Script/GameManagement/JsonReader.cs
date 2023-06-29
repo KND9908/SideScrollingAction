@@ -33,32 +33,36 @@ public class WordsManagement
 [System.Serializable]
 public class EventFlag
 {
-    public bool _specialflag;
-    public bool _finish;
-    public string _callscene;
-    public float _timing;
-    public string _callevent;
-    public float _eventcode;
+    public bool specialflag;
+    public bool finish;
+    public string callscene;
+    public float timing;
+    public string callevent;
+    public float eventcode;
 }
-
+/// <summary>
+///　Jsonからファイルを読み取り、値を管理するクラス
+/// </summary>
 public class JsonReader : MonoBehaviour
 {
     //シングルトンで実装を想定
     public static JsonReader Singleton;
     
-    public WordsManager wordsmanager;
-    public EventManager eventmanager;
+    private WordsManager _CompWordsManager;
+    public WordsManager GetWordsManager => _CompWordsManager;
+    private EventManager _EventManager;
+    public EventManager GetEventManager => _EventManager;
 
     public int StartWords = 0;
     public int EndWords = 0;
 
-    private int CallEventNum = 0;
+    private int _CallEventNum = 0;
 
-    private string CallScene = "";
-    private LabelController ScrLabelController;
+    private string _CallScene = "";
+    private LabelController _ScrLabelController;
     [SerializeField]
     [Tooltip("台詞の文字列を表示するテキストフィールド")]
-    private GameObject TextField;
+    private GameObject _TextField;
     private void Start()
     {
         if (Singleton == null)
@@ -70,86 +74,86 @@ public class JsonReader : MonoBehaviour
         {
             Destroy(gameObject);
         }
-        JsonRead();
-        EventRead();
-        ScrLabelController = TextField.GetComponent<LabelController>();
+        _JsonRead();
+        _EventRead();
+        _ScrLabelController = _TextField.GetComponent<LabelController>();
     }
 
-    // Update is called once per frame
+
     private void Update()
     {
-        string EventCode = EventManagement();
+        string EventCode = _EventManagement();
         //demoシーンのファイルを読み込んだかチェックする関数
         bool EOF = false;
         if (EventCode == "Demo")
         {
-            //行っていない処理を見つけ、処理を行わせる
-            while (eventmanager.eventflag[CallEventNum]._callevent == "Demo" && !EOF)
+            //読み込んでいない文章を見つけ、処理を行わせる
+            while (_EventManager.eventflag[_CallEventNum].callevent == "Demo" && !EOF)
             {
-                if (!eventmanager.eventflag[CallEventNum]._finish)
+                if (!_EventManager.eventflag[_CallEventNum].finish)
                 {
-                    eventmanager.eventflag[CallEventNum]._finish = true;
-                    CallEvent(true,false,eventmanager.eventflag[CallEventNum]._eventcode,EventCode,"title",false);
+                    _EventManager.eventflag[_CallEventNum].finish = true;
+                    FileRead(true,false,_EventManager.eventflag[_CallEventNum].eventcode,EventCode,"title",false);
                 }
-                if (CallEventNum < eventmanager.eventflag.Length - 1)
-                    CallEventNum++;
+                if (_CallEventNum < _EventManager.eventflag.Length - 1)
+                    _CallEventNum++;
                 else
                     EOF = true;
             }
         }
         else if (EventCode == "Begin")//現在のシーンがMainGameの場合
         {
-            if (CallScene == SceneManager.GetActiveScene().name)
+            if (_CallScene == SceneManager.GetActiveScene().name)
             {
                 //行っていない処理を見つけ、処理を行わせる
-                while (eventmanager.eventflag[CallEventNum]._callevent == "Begin" && !EOF)
+                while (_EventManager.eventflag[_CallEventNum].callevent == "Begin" && !EOF)
                 {
-                    if (!eventmanager.eventflag[CallEventNum]._finish)
+                    if (!_EventManager.eventflag[_CallEventNum].finish)
                     {
-                        eventmanager.eventflag[CallEventNum]._finish = true;
+                        _EventManager.eventflag[_CallEventNum].finish = true;
                         //シーン開始時の処理だからKeyLockはTrueで
-                        CallEvent(false,true,eventmanager.eventflag[CallEventNum]._eventcode, EventCode, "",true);
+                        FileRead(false,true,_EventManager.eventflag[_CallEventNum].eventcode, EventCode, "",true);
                     }
-                    if (CallEventNum < eventmanager.eventflag.Length - 1)
-                        CallEventNum++;
+                    if (_CallEventNum < _EventManager.eventflag.Length - 1)
+                        _CallEventNum++;
                     else
                         EOF = true;
                 }
             }
         }
     }
-    private void JsonRead()
+    private void _JsonRead()
     {
         string datapath = "WordsManagement";
         string inputString = Resources.Load<TextAsset>(datapath).ToString();
-        wordsmanager = JsonUtility.FromJson<WordsManager>(inputString);
-        Debug.Log(wordsmanager.wordsmanagement[0]._words);  // ロード出来てるかの確認用
+        _CompWordsManager = JsonUtility.FromJson<WordsManager>(inputString);
+        Debug.Log(_CompWordsManager.wordsmanagement[0]._words);  // ロード出来てるかの確認用
     }
 
-    private void EventRead()
+    private void _EventRead()
     {
         string datapath = "EventFlag";
         string inputString = Resources.Load<TextAsset>(datapath).ToString();
-        eventmanager = JsonUtility.FromJson<EventManager>(inputString);
-        Debug.Log(eventmanager.eventflag[0]._callevent);  // ロード出来てるかの確認用
+        _EventManager = JsonUtility.FromJson<EventManager>(inputString);
+        Debug.Log(_EventManager.eventflag[0].callevent);  // ロード出来てるかの確認用
     }
-    private string EventManagement()
+    private string _EventManagement()
     {
         string CallEvent = "NOT FOUND";
         //ReadしたEventの要素から、タイミングの合致する処理があった場合に該当EventをCallする処理
-        for (int i = 0; i < eventmanager.eventflag.Length; i++)
+        for (int i = 0; i < _EventManager.eventflag.Length; i++)
         {
             //対象のシーンをフォーカス
-            if (eventmanager.eventflag[i]._callscene == SceneManager.GetActiveScene().name)
+            if (_EventManager.eventflag[i].callscene == SceneManager.GetActiveScene().name)
             {
-                if (!eventmanager.eventflag[i]._finish)
+                if (!_EventManager.eventflag[i].finish)
                 {
                     //Timingが0なら問答無用でその対象の関数はすぐCall
-                    if (eventmanager.eventflag[i]._timing == 0)
+                    if (_EventManager.eventflag[i].timing == 0)
                     {
-                        CallScene = eventmanager.eventflag[i]._callscene;
-                        CallEvent = eventmanager.eventflag[i]._callevent;
-                        CallEventNum = i;
+                        _CallScene = _EventManager.eventflag[i].callscene;
+                        CallEvent = _EventManager.eventflag[i].callevent;
+                        _CallEventNum = i;
                         return CallEvent;
                     }
                 }
@@ -158,14 +162,14 @@ public class JsonReader : MonoBehaviour
         return CallEvent;
     }
 
-    //ステージに配置してあるセンサーからイベント処理の通知が来た場合の処理
-    public void CensorCallevent(int CallCode,string NextScene,bool KeyLock)
+    //ベント処理の通知が来た場合の処理
+    public void Callevent(int CallCode,string NextScene,bool KeyLock)
     {
         bool StartCheck = false;
-        for (int i = 0; i < wordsmanager.wordsmanagement.Length; i++)
+        for (int i = 0; i < _CompWordsManager.wordsmanagement.Length; i++)
         {
-            if (wordsmanager.wordsmanagement[i]._callscene == SceneManager.GetActiveScene().name
-    && wordsmanager.wordsmanagement[i]._eventcode == CallCode)
+            if (_CompWordsManager.wordsmanagement[i]._callscene == SceneManager.GetActiveScene().name
+    && _CompWordsManager.wordsmanagement[i]._eventcode == CallCode)
             {
                 if (!StartCheck)
                 {
@@ -175,15 +179,16 @@ public class JsonReader : MonoBehaviour
                 EndWords = i;
             }
         }
-        StartCoroutine(ScrLabelController.DispText(false, true, StartWords, EndWords, NextScene, KeyLock));
+        StartCoroutine(_ScrLabelController.DispText(false, true, StartWords, EndWords, NextScene, KeyLock));
     }
-    private void CallEvent(bool AutoMode,bool hukidasi,float flagcode,string timing,string nextscene,bool KeyLock)
+    //テキストの読み込み処理
+    private void FileRead(bool AutoMode,bool hukidasi,float flagcode,string timing,string nextscene,bool KeyLock)
     {
         bool StartCheck = false;
-        for (int i = 0; i < wordsmanager.wordsmanagement.Length; i++)
+        for (int i = 0; i < _CompWordsManager.wordsmanagement.Length; i++)
         {
-            if (wordsmanager.wordsmanagement[i]._callscene == SceneManager.GetActiveScene().name
-                && wordsmanager.wordsmanagement[i]._eventcode == flagcode && wordsmanager.wordsmanagement[i]._timing == timing)
+            if (_CompWordsManager.wordsmanagement[i]._callscene == SceneManager.GetActiveScene().name
+                && _CompWordsManager.wordsmanagement[i]._eventcode == flagcode && _CompWordsManager.wordsmanagement[i]._timing == timing)
             {
                 if (!StartCheck)
                 {
@@ -193,6 +198,6 @@ public class JsonReader : MonoBehaviour
                 EndWords = i;
             }
         }
-        StartCoroutine(ScrLabelController.DispText(AutoMode, hukidasi, StartWords, EndWords,nextscene,KeyLock));
+        StartCoroutine(_ScrLabelController.DispText(AutoMode, hukidasi, StartWords, EndWords,nextscene,KeyLock));
     }
 }

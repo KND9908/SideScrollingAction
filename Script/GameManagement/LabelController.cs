@@ -4,40 +4,42 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
-
+/// <summary>
+/// 台詞の表示を管理するクラス
+/// </summary>
 public class LabelController : MonoBehaviour
 {
     public string[] texts;
 
     [SerializeField]
-    private TextMeshProUGUI TxtWords_Label;
+    private TextMeshProUGUI _ObjTxt;
     [SerializeField]
-    private GameObject TxtWords_BackScreen;
+    private GameObject _Obj_BackScreen;
     [SerializeField]
-    private GameObject TxtWords_Icon;
+    private GameObject _Obj_Icon;
     [SerializeField]
-    private GameObject TxtWords_Frame;
+    private GameObject _Obj_IconFrame;
     [SerializeField]
-    private GameObject JsonReader;
+    private GameObject _ObjJsonReader;
     [SerializeField]
-    private GameObject GameManager;
+    private GameObject _ObjGameManager;
     [SerializeField]
-    private GameObject FadeOut;
+    private GameObject _ObjFadeOut;
 
-    private int TextNum;//読み込んだテキストの番号
-    private string DisplayText = "";
-    private int TextCharNum;//テキストの文字の番号
-    
+    private int _TextNum;//読み込んだテキストの番号
+    private string _DisplayText = "";
+    private int _TextCharNum;//テキストの文字の番号
+
     //文字の描画速度調整用変数
-    private int CntCharDrawSpeed = 0;
+    private int _CntCharDrawSpeed = 0;
     [SerializeField]
-    private int dispcharspeed = 1;
+    private int _DispCharSpeed = 1;
 
-    private bool isClick = false;//クリックの判定
+    private bool _isClick = false;//クリックの判定
 
-    private float FFTime = 0;
+    private float _FFTime = 0;//自動でテキストを表示する時間
 
-    public bool ActionNow = false;
+    public bool isAction = false;
 
     public bool InterruptEvent = false;//強制イベントか否か
 
@@ -45,19 +47,19 @@ public class LabelController : MonoBehaviour
 
     public bool CoroutineAct = false;
 
-    public bool isEventFin = false;
+    public bool isEventFin = false;//イベントが終了したか否か　後々プライベートに変更する
 
-    private bool isTextView = false;
-    private Gamemanager ScrGamemanager => GameManager.GetComponent<Gamemanager>();
-    private JsonReader ScrJsonReader => JsonReader.GetComponent<JsonReader>();
-    private FadeOut ScrFadeOut => FadeOut.GetComponent<FadeOut>();
-    private Image IconNowImage => TxtWords_Icon.GetComponent<Image>();
+    private bool _isTextView = false;
+    private Gamemanager _CompGamemanager => _ObjGameManager.GetComponent<Gamemanager>();
+    private JsonReader _CompJsonReader => _ObjJsonReader.GetComponent<JsonReader>();
+    private FadeOut _CompFadeOut => _ObjFadeOut.GetComponent<FadeOut>();
+    private Image _IconNowImage => _Obj_Icon.GetComponent<Image>();
     [SerializeField]
-    private Texture2D PlayerImage;
+    private Texture2D _PlayerImage;
     [SerializeField]
-    private Texture2D BossImage;
+    private Texture2D _BossImage;
     [SerializeField]
-    private Texture2D OtherImage;
+    private Texture2D _OtherImage;
 
     public static LabelController Singleton;
 
@@ -73,15 +75,16 @@ public class LabelController : MonoBehaviour
             Destroy(gameObject);
         }
     }
+    //ラベルに台詞を表示する処理
     public IEnumerator DispText(bool Auto, bool speechbubble, int textstart, int textfin, string nextscene, bool KeyLock)
     {
-        ActionNow = true;
+        isAction = true;
         bool textstop = false;//ロードのくくりが完了した場合
         if ("Demo" != SceneManager.GetActiveScene().name)
         {
-            ScrGamemanager.KeyLock = KeyLock;
+            _CompGamemanager.KeyLock = KeyLock;
         }
-        TextNum = textstart;
+        _TextNum = textstart;
         int nowicon = 0;
 
         while (!textstop)
@@ -89,22 +92,22 @@ public class LabelController : MonoBehaviour
             //強制イベントが発生した場合は全ての動作を止め、イベント用のテキストを表示する
             if (InterruptEvent)
             {
-                DisplayText = "";
-                TextCharNum = 0;
-                TextNum = 0;
+                _DisplayText = "";
+                _TextCharNum = 0;
+                _TextNum = 0;
                 textstop = true;
-                FFTime = 0;
+                _FFTime = 0;
                 InterruptEvent = false;
                 //吹き出しがあるうえでの読み込み処理をしていた場合、吹き出しを隠す
                 if (speechbubble)
                 {
                     StartCoroutine(RemoveView());
-                    ScrGamemanager.EventNow = false;
+                    _CompGamemanager.EventNow = false;
                 }
 
                 if (KeyLock)
-                    ScrGamemanager.KeyLock = false;
-                ActionNow = false;
+                    _CompGamemanager.KeyLock = false;
+                isAction = false;
                 yield break;
             }
             else
@@ -112,26 +115,26 @@ public class LabelController : MonoBehaviour
                 if (!textstop)
                 {
                     //イベントコードを読み込んだ場合
-                    if (ScrJsonReader.wordsmanager.wordsmanagement[TextNum]._specialflag != "")
+                    if (_CompJsonReader.GetWordsManager.wordsmanagement[_TextNum]._specialflag != "")
                     {
                         if (!CoroutineAct)
                         {
                             CoroutineAct = true;
-                            //とりあえずその内容で処理を変えてみるのを直訳した関数で書く
-                            ScrGamemanager.EventAct(ScrJsonReader.wordsmanager.wordsmanagement[TextNum]._specialflag);
+                            //対応イベントを実行
+                            _CompGamemanager.EventAct(_CompJsonReader.GetWordsManager.wordsmanagement[_TextNum]._specialflag);
                         }
                         else
                         {
                             if (isEventFin)
                             {
                                 //イベント終わったら次の行読み込む
-                                if (TextNum < textfin)
+                                if (_TextNum < textfin)//読み込む行が最終行でない場合
                                 {
-                                    TextNum++;
+                                    _TextNum++;
                                 }
                                 else
                                 {
-                                    TextNum = 0;
+                                    _TextNum = 0;
                                     textstop = true;
                                 }
                                 CoroutineAct = false;
@@ -140,9 +143,9 @@ public class LabelController : MonoBehaviour
                         }
                     }
                     //文字が終端まで行ってない場合
-                    else if (TextCharNum != ScrJsonReader.wordsmanager.wordsmanagement[TextNum]._words.Length)
+                    else if (_TextCharNum != _CompJsonReader.GetWordsManager.wordsmanagement[_TextNum]._words.Length)
                     {
-                        if (!isTextView)
+                        if (!_isTextView)
                         {
                             StartCoroutine(CallView());
                             while (!ViewVisible)
@@ -151,129 +154,136 @@ public class LabelController : MonoBehaviour
                             }
                         }
                         //アイコンの表示位置変更
-                        if (ScrJsonReader.wordsmanager.wordsmanagement[TextNum]._iconpos == "1")
-                        {
-                            TxtWords_Icon.transform.localPosition = new Vector3(-267,130,0);
-                        }
-                        else if (ScrJsonReader.wordsmanager.wordsmanagement[TextNum]._iconpos == "2")
-                        {
-                            TxtWords_Icon.transform.localPosition = new Vector3(282, 130, 0);
-                        }
-                        //アイコンの内容変更
-                        if (ScrJsonReader.wordsmanager.wordsmanagement[TextNum]._character == "キット")
-                        {
-                            if (nowicon != 1)
-                            {
-                                nowicon = 1;
-                                IconNowImage.sprite = Sprite.Create(PlayerImage, new Rect(0, 0, PlayerImage.width, PlayerImage.height), Vector2.zero);
-                            }
-                        }
-                        else if (ScrJsonReader.wordsmanager.wordsmanagement[TextNum]._character == "レール")
-                        {
-                            if (nowicon != 2)
-                            {
-                                nowicon = 2;
-                                IconNowImage.sprite = Sprite.Create(BossImage, new Rect(0, 0, BossImage.width, BossImage.height), Vector2.zero);
-                            }
-                        }
-                        else
-                        {
-                            if (nowicon != 0)
-                            {
-                                nowicon = 0;
-                                IconNowImage.sprite = Sprite.Create(OtherImage, new Rect(0, 0, OtherImage.width, OtherImage.height), Vector2.zero);
-                            }
-                        }
+                        SetIconPosition(int.Parse(_CompJsonReader.GetWordsManager.wordsmanagement[_TextNum]._iconpos));
+
+                        nowicon = ChangeIconContent();
 
 
-                        CntCharDrawSpeed++;
-                        if (CntCharDrawSpeed % dispcharspeed == 0)//文字の描画速度の調整
+                        _CntCharDrawSpeed++;
+                        if (_CntCharDrawSpeed % _DispCharSpeed == 0)//文字の描画速度の調整
                         {
                             //表示する文字列に1文字だけ読み込んだテキスト文字を追加する
-                            char addserihu = ScrJsonReader.wordsmanager.wordsmanagement[TextNum]._words[TextCharNum];
-                            DisplayText = DisplayText + addserihu;
-                            TextCharNum = TextCharNum + 1;
+                            char addserihu = _CompJsonReader.GetWordsManager.wordsmanagement[_TextNum]._words[_TextCharNum];
+                            _DisplayText = _DisplayText + addserihu;
+                            _TextCharNum = _TextCharNum + 1;
                         }
                     }
                     else
-                      if (TextNum < textfin)
+                      if (_TextNum < textfin)
                     {
-                        FFTime += Time.deltaTime;
-                        if (isClick)
+                        _FFTime += Time.deltaTime;
+                        if (_isClick)
                         {//追加する文字をクリアにし文章の番号を最初に戻す
-                            DisplayText = "";
-                            TextCharNum = 0;
-                            TextNum++;
-                            FFTime = 0;
+                            _DisplayText = "";
+                            _TextCharNum = 0;
+                            _TextNum++;
+                            _FFTime = 0;
                         }
                     }
                     else
                     {
-                        FFTime += Time.deltaTime;
+                        _FFTime += Time.deltaTime;
                         //全部読んだうえでクリックされたらもろもろを初期化
-                        if (isClick)
+                        if (_isClick)
                         {
-                            DisplayText = "";
-                            TextCharNum = 0;
-                            TextNum = 0;
+                            _DisplayText = "";
+                            _TextCharNum = 0;
+                            _TextNum = 0;
                             textstop = true;
-                            FFTime = 0;
+                            _FFTime = 0;
                             //吹き出しがあるうえでの読み込み処理をしているかで処理を?行うか否かがわかれる
                             if (speechbubble)
                             {
                                 StartCoroutine(RemoveView());
-                                ScrGamemanager.EventNow = false;
+                                _CompGamemanager.EventNow = false;
                             }
                         }
                     }
                 }
                 //UIに表示
-                TxtWords_Label.text = DisplayText;
-                isClick = false;
+                _ObjTxt.text = _DisplayText;
+                _isClick = false;
                 //マウスが押されたら次の文章を読み込む
-                if (!Auto && Input.GetKeyDown(KeyCode.Return) || (Auto && FFTime > 2.0f))//またはAutoModeがTrueでかつタイムデルタタイムが２秒経過したとき
+                if (!Auto && Input.GetButtonDown("Hint") || (Auto && _FFTime > 2.0f))//またはAutoModeがTrueでかつタイムデルタタイムが２秒経過したとき(現在仮でジャンプと同じボタンにしている)
                 {
-                    isClick = true;
+                    _isClick = true;
                 }
+
+
+
                 yield return null;
             }
         }
         //Eventmanagerのcallsceneが今のsceneと合致している時、かつ、EventManagerのタイミングが特定の値の時、EventManagerに描いてある処理を行う
         if (Auto || nextscene != "")
             //次のシーンへフェードアウトする処理
-            ScrFadeOut.FadeOutCall(nextscene);
+            _CompFadeOut.FadeOutCall(nextscene);
 
         if (KeyLock)
-            ScrGamemanager.KeyLock = false;
-        ActionNow = false;
+            _CompGamemanager.KeyLock = false;
+        isAction = false;
         yield break;
     }
+
+    private void SetIconPosition(int iconPos)
+    {
+        if (iconPos == 1)
+        { _Obj_Icon.transform.localPosition = new Vector3(-267, 130, 0); }
+        else if (iconPos == 2)
+        { _Obj_Icon.transform.localPosition = new Vector3(282, 130, 0); }
+    }
+
+    private int ChangeIconContent()
+    {
+        int nowicon = 0;
+        if (_CompJsonReader.GetWordsManager.wordsmanagement[_TextNum]._character == "キット")
+        {
+            if (nowicon != 1)
+            {
+                nowicon = 1;
+                _IconNowImage.sprite = Sprite.Create(_PlayerImage, new Rect(0, 0, _PlayerImage.width, _PlayerImage.height), Vector2.zero);
+            }
+        }
+        else if (_CompJsonReader.GetWordsManager.wordsmanagement[_TextNum]._character == "レール")
+        {
+            if (nowicon != 2)
+            {
+                nowicon = 2;
+                _IconNowImage.sprite = Sprite.Create(_BossImage, new Rect(0, 0, _BossImage.width, _BossImage.height), Vector2.zero);
+            }
+        }
+        else
+        {
+            if (nowicon != 0)
+            {
+                nowicon = 0;
+                _IconNowImage.sprite = Sprite.Create(_OtherImage, new Rect(0, 0, _OtherImage.width, _OtherImage.height), Vector2.zero);
+            }
+        }
+        return nowicon;
+    }
+
     public IEnumerator CallView()
     {
-        TxtWords_BackScreen.GetComponent<Image>().enabled = true;
-        TxtWords_Icon.GetComponent<Image>().enabled = true;
-        TxtWords_Frame.GetComponent<Image>().enabled = true;
-        for (int i = 0; i < 20; i++)
-        {
-            //Removetext();
-            yield return null;
-        }
+        _Obj_BackScreen.GetComponent<Image>().enabled = true;
+        _Obj_Icon.GetComponent<Image>().enabled = true;
+        _Obj_IconFrame.GetComponent<Image>().enabled = true;
         ViewVisible = true;
-        isTextView = true;
+        _isTextView = true;
         yield break;
     }
     //吹き出しを閉じる
     public IEnumerator RemoveView()
     {
-        TxtWords_BackScreen.GetComponent<Image>().enabled = false;
-        TxtWords_Icon.GetComponent<Image>().enabled = false;
-        TxtWords_Frame.GetComponent<Image>().enabled = false;
+        _Obj_BackScreen.GetComponent<Image>().enabled = false;
+        _Obj_Icon.GetComponent<Image>().enabled = false;
+        _Obj_IconFrame.GetComponent<Image>().enabled = false;
         for (int i = 0; i < 50; i++)
         {
             yield return null;
         }
         ViewVisible = false;
-        isTextView = false;
+        _isTextView = false;
         yield break;
     }
 }

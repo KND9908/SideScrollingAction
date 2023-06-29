@@ -3,27 +3,28 @@ using UnityEngine;
 using System;
 using DG.Tweening;
 using UnityEditor;
-
+/// <summary>
+/// プレイヤー全般の処理を管理するクラス
+/// </summary>
 public class Player : CreatureBase
 {
 #if UNITY_EDITOR
-    //設定されたパラメータをインスペクター上から見れるようにする
     [CustomEditor(typeof(CreatureBase))]
 #endif
 
-    //現在のプレイアブルキャラクターのコード
-    [SerializeField]
-    private PlayerCode NowPlayerCode = PlayerCode.kit;
-
-    //現在のプレイヤーキャラクター
-    private enum PlayerCode : int
+    /// <summary>
+    /// 現在のプレイヤーキャラクターの種類を定義する列挙型
+    /// </summary>
+    private enum _PlayerCode : int
     {
         kit,
         rail
     }
 
-    //プレイヤーキャラクターの状態
-    private enum PlayerMode : int
+    /// <summary>
+    /// プレイヤーキャラクターのモーションを定義する列挙型
+    /// </summary>
+    private enum _PlayerMotion : int
     {
         Normal,
         Run,
@@ -34,98 +35,95 @@ public class Player : CreatureBase
         Damage,
         SpecialMove
     }
+    [SerializeField]
+    [Tooltip("現在のプレイヤー（複数のキャラクターがプレイヤーになることを想定）")]
+    private _PlayerCode currentPlayer = _PlayerCode.kit;
+
 
     [SerializeField]
-    [Tooltip("プレイヤーの通常時のグラフィック")]
-    private GameObject ObjNormal;
-
-    [SerializeField]
-    [Tooltip("プレイヤーの走ってる時のグラフィック")]
-    private GameObject ObjRun;
-
-    [SerializeField]
-    [Tooltip("プレイヤーの攻撃時のグラフィック")]
-    private GameObject ObjBeat;
-
-    [SerializeField]
-    [Tooltip("プレイヤーのロケットパンチ発射時のグラフィック")]
-    private GameObject ObjRocketPunch;
-
-    [SerializeField]
-    [Tooltip("プレイヤーのダメージ受けた時のグラフィック")]
-    private GameObject ObjDamage;
-
-    [SerializeField]
-    [Tooltip("プレイヤーの必殺技発動時のグラフィック")]
-    private GameObject ObjSpecialMove;
-
-
-    [Tooltip("攻撃した時のアニメーションのグラフィック時間")]
-    [SerializeField]
-    private int WaitFrame;
+    [Tooltip("攻撃した時のアニメーションをグラフィックする時間")]
+    private int _WaitFrame = 1;
 
     [SerializeField]
     [Tooltip("プレイヤーの装着する武器　デフォルトはガントレットを設定する")]
-    private GameObject Weapon;
+    private GameObject _Weapon;
 
     [SerializeField]
-    [Tooltip("プレイヤーの着地判定を行うセンサー")]
-    private GameObject GroundCensor;
+    [Tooltip("プレイヤーの着地判定を行うセンサー用のオブジェクト")]
+    private GameObject _GroundCensor;
 
     [SerializeField]
     [Tooltip("攻撃力")]
     public int AttackPower = 1;
 
+    //以下プレイヤーのアニメーションを描画するのゲームオブジェクト　
     [SerializeField]
-    [Tooltip("ダメージ受けたときの透明不透明を切り替えるための変数")]
-    private GameObject InvisiObj;
+    [Tooltip("プレイヤーの通常時のグラフィック")]
+    private GameObject _ObjNormal;
+    public GameObject SetObjNormal { set => _ObjNormal = value; }
 
-    //武器管理用クラス
-    private GameObject Instantitate_Weapon;
+    [SerializeField]
+    [Tooltip("プレイヤーが放つレーザーのオブジェクト")]
+    private GameObject _ObjLaser;
 
-    //プレイヤーの現在のモード
-    GameObject NowMode;
+    //アニメーションの反転判定
+    private bool _VisualInversion = false;
+    public bool GetSetVisualInversion { get => _VisualInversion; set => _VisualInversion = value; }
+    //移動している方向
+    private float _Movevec = 0;
+
+    //ダメージ受けたときの点滅する際の透明不透明を切り替える時間
+    [SerializeField]
+    private GameObject _ObjInvisible;
 
     //2段ジャンプをしたかの判定
-    private bool TwiceJump = false;
+    private bool _TwiceJump = false;
     //攻撃中か否か
-    private bool NowAttackAction = false;
-    //進行方向に向くための反転
-    private bool VisualInversion = false;
-    public bool GetSetVisualInversion { get { return VisualInversion; } set { VisualInversion = value; } }
-
-    private float JumpVelocity = 0;
-    // 現在のプレイヤーのモード
-    private PlayerMode NowPlayerMode;
+    private bool _IsAttack = false;
 
     // ダメージをくらっているか否か
-    private bool DamageNow = false;
+    private bool _IsDamage = false;
 
     //プレイヤーの行動時にかかるキーロック
-    private bool ActionKeyLock = false;
-
-    //ジャンプした位置
-    private float JumpPos = 0;
+    private bool _KeyLockbyAct = false;
 
     //ジャンプ出来る高さのMAX
     [SerializeField]
-    private float MAXJump = 0;
+    private float _MAXJump = 0;
 
-    private float JumpCount = 0;
-    public int HaveOpenKey { get; set; } = 0;
+    //ジャンプするときの上昇値
+    [SerializeField]
+    private float _JumpPower = 20;
 
-    // ゲームマネージャによってキーロックがかかっているか否か
-    private bool GM_KeyLock => ScrGamemanager.KeyLock;
-    private Guntret _Guntret;
-    private Rigidbody _Rigidbody;
-    PlayerCensorGround _PlayerCensorGround => GroundCensor.GetComponent<PlayerCensorGround>();
-    private new bool OnGround => _PlayerCensorGround.OnGround;
+    private float _JumpCount = 0;
 
+    private int _HaveOpenKey = 0;
+
+    private bool _GM_KeyLock => _CompGamenager.KeyLock;
+
+    //以下コンポーネントの取得
+    private Guntret _CompGuntret;
+    private Rigidbody _CompRigidbody;
+    private Animator AnimaorNormal;
+    //プレイヤーキャラクターの全体の表示非表示を管理するアニメーター
+    private Animator _CompAnimatorAll;
+
+    [SerializeField]
+    private AnimationClip ClipNormal;
+    //プレイヤーが倒された時のアニメーションクリップ
+    [SerializeField]
+    private AnimationClip _ClipDead;
+
+
+    private PlayerCensorGround _CompPlayerCensorGround => _GroundCensor.GetComponent<PlayerCensorGround>();
+    //プレイヤーが地面に接地しているか否か
+    public override bool GetSetOnGround
+    {
+        get => _CompPlayerCensorGround.OnGround;
+        set => _OnGround = _CompPlayerCensorGround.OnGround;
+    }
     //RigidBodyに付加するVelocity
-    Vector3 SetVelocity;
-
-    //移動している方向
-    private float Movevec = 0;
+    private Vector3 _SetRbVelocity;
 
     //HPに変動があったときに発生させるイベント
     public event System.Action<int> UpdateHP;
@@ -133,321 +131,382 @@ public class Player : CreatureBase
     private void Start()
     {
         //初期値の代入処理
-        NowHP = MaxHP;
-        NowPlayerMode = PlayerMode.Normal;
-        NowMode = ObjNormal;
-        SetVelocity = Vector3.zero;
-
-        _Rigidbody = GetComponent<Rigidbody>();
+        _NowHP = _MaxHP;
+        _SetRbVelocity = Vector3.zero;
+        _CompRigidbody = GetComponent<Rigidbody>();
+        AnimaorNormal = _ObjNormal.GetComponent<Animator>();
+        _CompAnimatorAll = _ObjInvisible.GetComponent<Animator>();
     }
-
     private void Update()
     {
         //イベント中はキー入力の操作を無効にする
-        if (!GM_KeyLock)
+        if (_GM_KeyLock)
         {
-            if (Input.GetButtonDown("Jump"))
-            {
-                if (OnGround && !JumpNow)
-                {
-                    JumpNow = true;
-                    SetVisible(PlayerMode.Jump);
-                }
-                else if (!TwiceJump)
-                {
-                    JumpNow = true;
-                    TwiceJump = true;
-                    JumpCount = 0;
-                    SetVisible(PlayerMode.Jump);
-                }
-            }
-            if (Input.GetKeyDown(KeyCode.Z) && !NowAttackAction)
-            {
-                StartCoroutine(WeakAttack());
-            }
-            if (Input.GetKeyDown(KeyCode.X) && !NowAttackAction)
-            {
-                StartCoroutine(HeavyAttack());
-            }
-            if (Input.GetKeyDown(KeyCode.S) && !NowAttackAction)
-            {
-                StartCoroutine(SpecialMove());
-            }
+            // キー入力が無効の場合は横移動ができなくなり、ジャンプ中でない場合はノーマルモーションに戻す
+            _SetRbVelocity.x = 0;
+            if (!_JumpNow) _CompAnimatorAll.SetBool("isJump", false);
         }
         else
         {
-            SetVelocity.x = 0;
-            if (!JumpNow) SetVisible(PlayerMode.Normal);//キーロックかかっている時は動作はなにもできないのでノーマルに
+            // キー入力が有効の場合はコマンドが実行可能
+            HandleInput();
         }
-
-        if (JumpNow)
-        {
-            Jump();
-            SetVelocity.y = JumpVelocity;
-        }
-        else
-        {
-            SetVelocity.y = OnGround ? 0 : GravityVelocity;
-        }
-
-        if (OnGround && TwiceJump)
-        {
-            TwiceJump = false;
-        }
-        _Rigidbody.velocity = new Vector3(SetVelocity.x, SetVelocity.y, 0);
     }
-
+    //RigidBodyに関与した処理はFixedUpdateにて行う
     private void FixedUpdate()
     {
-        if (NowPlayerMode != PlayerMode.SpecialMove)
-        {
-            Gravity();
-        }
-        if (!GM_KeyLock)
+        Gravity();
+        // ゲームマネージャーによってキー入力のロックがされていない場合、プレイヤーは動作が可能とする
+        if (!_GM_KeyLock)
         {
             Move();
         }
-    }
 
-    private IEnumerator SpecialMove()
-    {
-        NowPlayerMode = PlayerMode.SpecialMove;
-        for (int i = 0; i < 50; i++)
+        if (_JumpNow)
         {
-            _Rigidbody.velocity = new Vector3(MoveSpeed, 0, 0);
-            yield return null;
-        }
-        _Rigidbody.velocity = Vector3.zero;
-        yield break;
-    }
-    protected override void Move()
-    {
-        Movevec = Input.GetAxisRaw("Horizontal");
-        VisualInversionCheck();
-        if (OnGround && !JumpNow && !DamageNow && !NowAttackAction)
-        {
-            if (Movevec != 0 && NowPlayerMode != PlayerMode.Run)
-            {
-                SetVisible(PlayerMode.Run);
-            }
-            else if (Movevec == 0 && NowPlayerMode != PlayerMode.Normal)
-            {
-                SetVisible(PlayerMode.Normal);
-            }
-        }
-        //SetVelocity.x = GM_KeyLock || ActionKeyLock ? 0 : Movevec * MoveVelocity;
-        SetVelocity.x = GM_KeyLock ? 0 : Movevec * MoveSpeed;
-        Debug.Log("now velocity x =" + SetVelocity.x);
-    }
-    private void VisualInversionCheck()
-    {
-        if (Movevec < 0)
-        {
-            VisualInversion = true;
-        }
-        else if (Movevec > 0)
-        {
-            VisualInversion = false;
-        }
-        //プレイヤーの向きを変える
-        if (VisualInversion)
-        {
-            NowMode.transform.rotation = Quaternion.Euler(0, 180, 0);
+            // ジャンプ中の場合はジャンプ処理を実行し、垂直速度をジャンプ力に設定する
+            Jump();
+            _SetRbVelocity.y = _JumpPower;
         }
         else
         {
-            NowMode.transform.rotation = Quaternion.Euler(0, 0, 0);
-        }
-    }
+            //着地した場合はisjumpをfalseにする
+            if (GetSetOnGround)
+            {
+                _CompAnimatorAll.SetBool("isJump", false);
+            }
+            // ジャンプ中でない場合は、地面にいない場合重力を設定する
+            _SetRbVelocity.y = GetSetOnGround ? 0 : _GravityVelocity;
+            AnimaorNormal.SetBool("isFall", !GetSetOnGround);
 
-    //プレイヤーの捜査状況によって、表示するオブジェクトを変更する
-    private void SetVisible(PlayerMode mode)
-    {
-        if (!DeathFlag)
+        }
+
+        // もし地面に着地していてかつ2回目のジャンプを実行していた場合は、判定をリセットする
+        if (GetSetOnGround && _TwiceJump)
         {
-            GameObject obj = NowMode;
-            //ダメージ受けてたら問答無用でダメージのエフェクトに変化させる
-            if (mode == PlayerMode.Damage)
-            {
-                obj = ObjDamage;
-                //ダメージ受けたときの描写変更
-            }
-            //ジャンプ中なら問答無用でジャンプに切り替える
-            if (mode == PlayerMode.Jump)
-            {
-                obj = ObjNormal;
-                //ジャンプ中はこの描画が優先される（これだけアニメーションの管理になると思われる）
-            }
+            _TwiceJump = false;
+        }
+        _CompRigidbody.velocity = new Vector3(_SetRbVelocity.x, _SetRbVelocity.y, 0);
+    }
+    //レーザー発射の処理
+    private void LaserShot()
+    {
+        //レーザーの発射
+        GameObject laser = Instantiate(_ObjLaser, _ObjLaser.transform.position, Quaternion.identity);
+        laser.transform.parent = transform;
+        laser.transform.localPosition = new Vector3(0, 0, 0);
+        laser.transform.localRotation = Quaternion.identity;
+        laser.transform.localScale = new Vector3(1, 1, 1);
+    }
 
-            if (mode == PlayerMode.Fall)
+    private void OnCollisionEnter(Collision other)
+    {
+        if (other.gameObject.CompareTag("Ground"))
+        {
+            _TwiceJump = false;
+        }
+        //ダメージ処理を行った後一定時間無敵にする
+        if (other.gameObject.CompareTag("enemy"))
+        {
+            if (other.gameObject.CompareTag("Player"))
             {
-                obj = ObjNormal;
-                //ジャンプ中はこの描画が優先される（これだけアニメーションの管理になると思われる）
+                _CompRigidbody.velocity = Vector3.zero;
             }
-
-            if (mode == PlayerMode.Normal)
+            if (!GetSetGodMode)
             {
-                obj = ObjNormal;
+                StartCoroutine("Damaged");
             }
-
-            if (mode == PlayerMode.Run)
-            {
-                obj = ObjRun;
-            }
-
-            if (mode == PlayerMode.RocketPunch)
-            {
-                obj = ObjRocketPunch;
-            }
-
-            if (mode == PlayerMode.Beat)
-            {
-                obj = ObjBeat;
-            }
-
-            if (mode == PlayerMode.SpecialMove)
-            {
-                obj = ObjSpecialMove;
-            }
-            NowPlayerMode = mode;
-            NowMode.SetActive(false);
-            NowMode = obj;
-            NowMode.SetActive(true);
-            Debug.Log(NowMode);
         }
     }
+    // 他のコライダーがトリガーに入った際の処理
+    private void OnTriggerEnter(Collider other)
+    {
+        // オブジェクトがアイテムだった場合
+        if (other.gameObject.GetComponent<Item>())
+        {
+            // アイテムの種類を取得してアイテム取得イベントを実行する。
+            ItemGetEvent(other.gameObject.GetComponent<Item>().thisitem);
+            Destroy(other.gameObject);
+        }
+        // トリガーに入ったオブジェクトが穴のセンサーだった場合
+        else if (other.gameObject.CompareTag("Hole"))
+        {
+            // 無敵モードでない場合はダメージ処理を開始
+            if (!GetSetGodMode)
+            {
+                StartCoroutine("Damaged");
+            }
+        }
+        // トリガーに入ったオブジェクトがステージクリア用のフラグだった場合
+        else if (other.gameObject.CompareTag("ClearFlag"))
+        {
+            _CompGamenager.Clearflag = true;
+        }
+        // トリガーに入ったオブジェクトが敵のスポナーだった場合
+        else if (other.gameObject.CompareTag("Spawner"))
+        {
+            // Spawnerオブジェクトをアクティブ化する
+            other.gameObject.SetActive(true);
+        }
+    }
+
+    //必殺技の処理
+    private IEnumerator SpecialMove()
+    {
+        const int _TIME = 50;
+        for (int i = 0; i < _TIME; i++)
+        {
+            _CompRigidbody.velocity = new Vector3(_MoveSpeed, 0, 0);
+            yield return null;
+        }
+        _CompRigidbody.velocity = Vector3.zero;
+        yield break;
+    }
+
+    [SerializeField] private float _dashDuration = 0.5f; // ダッシュの持続時間
+    [SerializeField] private float _dashSpeed = 10f; // ダッシュ時の移動速度
+    private bool _IsDashing = false; // ダッシュ中かどうかのフラグ
+    private float _DashTimer = 0f; // ダッシュの継続時間計測用のタイマー
+
+    // プレイヤーの横移動を行う関数
+    protected override void Move()
+    {
+        // 操作する方向を取得する
+        _Movevec = Input.GetAxisRaw("Horizontal");
+        // プレイヤーの向きを確認する
+        VisualInversionCheck();
+
+        // ジャンプ、ダメージ、攻撃中でない場合は以下の処理を実行する
+        if (GetSetOnGround && !_JumpNow && !_IsDamage && !_IsAttack)
+        {
+            // 移動方向が0でない場合は、プレイヤーのモーションを「Run」に変更する
+            if (_Movevec != 0)
+            {
+                //全体管理のアニメーターのモーションを変更する
+                _CompAnimatorAll.SetBool("isRun", true);
+            }
+            // 移動方向が0である場合は、プレイヤーのモーションを「Normal」に変更する
+            else if (_Movevec == 0)
+            {
+                //全体管理のアニメーターのモーションを変更する
+                _CompAnimatorAll.SetBool("isRun", false);
+            }
+        }
+
+        if (_IsDashing)
+        {
+            // ダッシュ中は移動速度を上げる
+            _SetRbVelocity.x = _Movevec * _dashSpeed;
+
+            _DashTimer -= Time.deltaTime;
+            if (_DashTimer <= 0f && GetSetOnGround)
+            {
+                _IsDashing = false;
+                //SetVisible(_PlayerMotion.Normal);
+            }
+        }
+        else
+        {
+            // ゲームマネージャーによってキー入力のロックがされていない場合、プレイヤーは動作が可能とする
+            _SetRbVelocity.x = _GM_KeyLock || _IsDamage ? 0 : _Movevec * _MoveSpeed;
+            //ダッシュ中に空中にいた場合は着地するまで速度をダッシュ中のものにする
+
+        }
+    }
+    //キー入力処理
+    private void HandleInput()
+    {
+        // ジャンプの処理
+        if (Input.GetButtonDown("Jump"))
+        {
+            if (GetSetOnGround && !_JumpNow)
+            {
+                // ジャンプが可能であればジャンプする
+                _JumpNow = true;
+                //SetVisible(_PlayerMotion.Jump);
+                _CompAnimatorAll.SetBool("isJump", true);
+
+            }
+            else if (!_TwiceJump)
+            {
+                // ジャンプ中であれば2段ジャンプをする
+                _JumpNow = true;
+                _TwiceJump = true;
+                _JumpCount = 0;
+                // SetVisible(_PlayerMotion.Jump);
+                _CompAnimatorAll.SetBool("isJump", true);
+            }
+        }
+
+        if (Input.GetButtonDown("Fire1") && !_IsAttack)
+        {
+            // 強攻撃の処理
+            StartCoroutine(HeavyAttack());
+        }
+        if (Input.GetButtonDown("Fire3") && !_IsAttack)
+        {
+            //もしゲームマネージャーの必殺技ゲージがたまっていたら発動できる
+            if (_CompGamenager.CurrentSpecialAttackGuide >= 100)
+            {
+                // 特殊攻撃の処理
+                StartCoroutine(SpecialMove());
+            }
+        }
+
+        // ダッシュ処理　接地していてかつダッシュ中でない場合に行える
+        if (Input.GetButtonDown("Dash") && !_IsDashing && GetSetOnGround)
+        {
+            _IsDashing = true;
+            _DashTimer = _dashDuration;
+        }
+    }
+
+    //オブジェクトの描画の反転処理
+    private void VisualInversionCheck()
+    {
+        if (_Movevec < 0)
+        {
+            _VisualInversion = true;
+        }
+        else if (_Movevec > 0)
+        {
+            _VisualInversion = false;
+        }
+        //プレイヤーの向きを変える
+        if (_VisualInversion)
+        {
+            _ObjInvisible.transform.rotation = Quaternion.Euler(0, 180, 0);
+        }
+        else
+        {
+            _ObjInvisible.transform.rotation = Quaternion.Euler(0, 0, 0);
+        }
+    }
+
+    //ジャンプ処理
     private void Jump()
     {
-        JumpPos = transform.position.y;
+        // ジャンプのカウントが90以下のとき
+        if (_JumpCount < 90)
         {
-            if (JumpCount < 90)
-            {
-                JumpCount += 3;
-                JumpVelocity = MAXJump * Mathf.Sin((90 - JumpCount) * Mathf.Deg2Rad);
-            }
-            else
-            {
-                JumpCount = 0;
-                JumpNow = false;
-            }
+            //ジャンプのカウントを増やす
+            _JumpCount += 3;
+            //ジャンプ力を計算する
+            _JumpPower = _MAXJump * Mathf.Sin(Mathf.Deg2Rad * (90 - _JumpCount));
+            //アニメーションをジャンプに変更する
+            AnimaorNormal.SetBool("isJump", true);
+            _CompAnimatorAll.SetBool("isJump", true);
+        }
+        //ジャンプが終了したとき
+        else
+        {
+            //カウントを初期化する
+            _JumpCount = 0;
+            //ジャンプ状態を解除する
+            _JumpNow = false;
+            //アニメーションを通常状態に変更する
+            AnimaorNormal.SetBool("isJump", false);
         }
     }
+
 
     private new void Gravity()
     {
         //重力加速度は正弦波で表現したいため実装
-        if (!JumpNow)
+        if (!_JumpNow)
         {
-            if (GravityFrameCnt < 90)
-                GravityFrameCnt += 3;
-            GravityVelocity = GravityPower * -1 * Mathf.Sin(GravityFrameCnt * Mathf.Deg2Rad);
+            if (_GravityFrameCnt < 90)
+                _GravityFrameCnt += 3;
+            _GravityVelocity = _GravityPower * -1 * Mathf.Sin(_GravityFrameCnt * Mathf.Deg2Rad);
         }
         else
         {
-            GravityFrameCnt = 0;
+            _GravityFrameCnt = 0;
         }
     }
-    private IEnumerator WeakAttack()
-    {
-        ActionKeyLock = true;
-        NowAttackAction = true;
-        //攻撃用のエフェクトを表示
-        SetVisible(PlayerMode.Beat);
-        for (int i = 0; i < WaitFrame; i++)
-        {
-            yield return null;
-        }
-        GetSetGodMode = false;
-        NowAttackAction = false;
-        ActionKeyLock = false;
-        //表示モーションを攻撃に変化
-        yield break;
-    }
-
+    // 強攻撃処理
     private IEnumerator HeavyAttack()
     {
-        ActionKeyLock = true;
-        NowAttackAction = true;
-        //攻撃用のエフェクトを表示
-        Instantitate_Weapon = Instantiate(Weapon);
+        // アクション中は入力を受け付けないようにする
+        _KeyLockbyAct = true;
+        // 攻撃中フラグをオンにする
+        _IsAttack = true;
 
-        if (NowPlayerCode == PlayerCode.kit)
+        // 攻撃用エフェクトを表示する
+        GameObject instantinateweapon = Instantiate(_Weapon);
+
+        if (currentPlayer == _PlayerCode.kit)
         {
-            SetVisible(PlayerMode.RocketPunch);
-            //子オブジェクト生成
-            _Guntret = Instantitate_Weapon.GetComponent<Guntret>();
-            _Guntret.Player = this.gameObject;
-            _Guntret.VectorX = Input.GetAxisRaw("Horizontal");
-            _Guntret.VectorY = Input.GetAxisRaw("Vertical");
-            _Guntret.NowMode = Guntret.Mode.RocketPunch;
+
+            // キットの場合
+            _CompAnimatorAll.SetBool("isHeavyAttack", true);
+
+            // 子オブジェクトを生成する
+            //Offset
+            float offsetx = 1.3875f;
+            float offsety = -0.014f;
+
+            _CompGuntret = instantinateweapon.GetComponent<Guntret>();
+            _CompGuntret.Player = this.gameObject;
+            _CompGuntret.VectorX = Input.GetAxisRaw("Horizontal");
+            _CompGuntret.VectorY = Input.GetAxisRaw("Vertical");
+            _CompGuntret.NowMode = Guntret.Mode.RocketPunch;
             int guntoffset = 1;
-            if (VisualInversion)
+            if (_VisualInversion)
             {
-                _Guntret.GetSetInversion = this.VisualInversion;
+                // キットが逆向きの場合は反転する
+                _CompGuntret.GetSetInversion = this._VisualInversion;
                 guntoffset *= -1;
             }
-            Instantitate_Weapon.transform.position = new Vector3(this.transform.position.x + 1.3875f * guntoffset, this.transform.position.y + -0.014f * guntoffset, this.transform.position.z);
+            instantinateweapon.transform.position = new Vector3(this.transform.position.x + offsetx * guntoffset, this.transform.position.y + offsety * guntoffset, this.transform.position.z);
 
         }
-        ActionKeyLock = false;
-        while (Instantitate_Weapon != null)
-        {
-            yield return null;
-        }
 
-        NowAttackAction = false;
-        //表示モーションを攻撃に変化
-        yield break;
+        _KeyLockbyAct = false;
+        // 攻撃中フラグをオフにする
+        _IsAttack = false;
+
+        //1秒待つ
+        yield return new WaitForSeconds(1.0f);
+
+        _CompAnimatorAll.SetBool("isHeavyAttack", false);
+
     }
 
     //無敵時間を管理する処理
-    //無敵時間中は点滅をする
     IEnumerator ChgGodMode()
     {
         GetSetGodMode = true;
-        bool flashing = false;
 
-        const float flashingtime = 2.0f;
-        const float flashingchgtime = 0.3f;
-        float flashingchgtime_count = 0;
-        for (float i = 0; i < flashingtime; i += Time.deltaTime)
-        {
-            flashingchgtime_count += Time.deltaTime;
-            if (flashingchgtime_count >= flashingchgtime)//ダメージ食らった時のウェイト
-            {
-                flashing = !flashing;
-                InvisiObj.SetActive(flashing);
-            }
-            yield return null;
-        }
+        //2秒間無敵にする
+        yield return new WaitForSeconds(2.0f);
+
         GetSetGodMode = false;
-        InvisiObj.SetActive(true);
     }
 
+    //死んだときの処理
     private IEnumerator Dead()
     {
         float minusframe = 2.0f;
         //HPが0になった時の処理
-        DeathFlag = true;
+        _DeathFlag = true;
 
-        while (NowMode.GetComponent<SpriteRenderer>().color.r > 0)
-        {
-            NowMode.GetComponent<SpriteRenderer>().color -= new Color(1 / minusframe * Time.deltaTime,
-                1 / minusframe * Time.deltaTime, 1 / minusframe * Time.deltaTime, 0);
-            yield return null;
-        }
+        //やられた時のアニメーションクリップを再生
+        _CompAnimatorAll.Play(_ClipDead.name);
+
+        //現在のアニメーション再生が終わるまで待機
+        yield return new WaitForSeconds(_ClipDead.length - minusframe);
+
         //シーンチェンジ
-        NowMode.GetComponent<SpriteRenderer>().color -= new Color(0, 0, 0, 1);
-        ActionKeyLock = false;
-        yield break;
+        _KeyLockbyAct = false;
     }
+    //ダメージ受けたときの処理
     public IEnumerator Damaged()
     {
         //ダメージをくらった時のエフェクトを表示
-        ActionKeyLock = true;
-        DamageNow = true;
+        _KeyLockbyAct = true;
+        _IsDamage = true;
         GetSetNowLife--;
-        SetVisible(PlayerMode.Damage);
         if (GetSetNowLife <= 0)
         {
             StartCoroutine(Dead());
@@ -456,39 +515,31 @@ public class Player : CreatureBase
         else
         {
             StartCoroutine(ChgGodMode());
-            UpdateHP.Invoke(GetSetNowLife);
-            const float waittime = 1.0f;
-            for (float f = 0; f < waittime; f += Time.deltaTime)
-            {
-                yield return null;
-            }
-            ActionKeyLock = false;
 
-            if (OnGround)
-            {
-                SetVisible(PlayerMode.Normal);
-            }
-            else if (JumpNow)
-            {
-                SetVisible(PlayerMode.Jump);
-            }
-            else
-            {
-                SetVisible(PlayerMode.Fall);
-            }
-            DamageNow = false;
+            //全体管理のアニメーターのisDamageをtrueにする
+            _CompAnimatorAll.SetBool("isDamage", true);
+
+            UpdateHP.Invoke(GetSetNowLife);
+
+            //1秒ほど待機
+            yield return new WaitForSeconds(1.0f);
+
+            //全体管理のアニメーターのisDamageをfalseにする
+            _CompAnimatorAll.SetBool("isDamage", false);
+            _IsDamage = false;
         }
         yield break;
     }
+    //アイテム取得時の処理
     private void ItemGetEvent(Item.ItemCode Code)
     {
         if (Code == Item.ItemCode.Key)
         {
-            HaveOpenKey++;
+            _HaveOpenKey++;
         }
         else if (Code == Item.ItemCode.Heal)
         {
-            if (GetSetNowLife < MaxHP)
+            if (GetSetNowLife < _MaxHP)
             {
                 GetSetNowLife++;
                 UpdateHP.Invoke(GetSetNowLife);
@@ -496,8 +547,8 @@ public class Player : CreatureBase
         }
         else if (Code == Item.ItemCode.LifeMaxUp)
         {
-            MaxHP++;
-            GetSetNowLife = MaxHP;
+            _MaxHP++;
+            GetSetNowLife = _MaxHP;
             UpdateHP.Invoke(GetSetNowLife);
         }
         else if (Code == Item.ItemCode.PowerUp)
@@ -507,42 +558,6 @@ public class Player : CreatureBase
         else
         {
             Debug.LogError("想定していないアイテムを取得");
-        }
-    }
-    private void OnCollisionEnter(Collision other)
-    {
-        if (other.gameObject.CompareTag("Ground"))
-        {
-            TwiceJump = false;
-        }
-        //ダメージ処理を行った後一定時間無敵にする
-        if (other.gameObject.CompareTag("enemy"))
-        {
-            if (other.gameObject.CompareTag("Player"))
-            {
-                _Rigidbody.velocity = Vector3.zero;
-            }
-            if (!GetSetGodMode)
-            {
-                StartCoroutine("Damaged");
-            }
-        }
-    }
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other.gameObject.GetComponent<Item>())
-        {
-            ItemGetEvent(other.gameObject.GetComponent<Item>().thisitem);
-            Destroy(other.gameObject);
-        }else if (other.gameObject.CompareTag("Hole"))
-        {
-            if (!GetSetGodMode)
-            {
-                StartCoroutine("Damaged");
-            }
-        }else if (other.gameObject.CompareTag("ClearFlag"))
-        {
-            ScrGamemanager.Clearflag = true;
         }
     }
 }

@@ -5,11 +5,11 @@ using UnityEngine;
 public class EnemyBody : MonoBehaviour
 {
     [SerializeField]
-    private GameObject ObjEnemy;
-    private Enemy ScrEnemy => ObjEnemy.GetComponent<Enemy>();
+    private GameObject _ObjEnemy;
+    private Enemy _ScrEnemy => _ObjEnemy.GetComponent<Enemy>();
     void Update()
     {
-        if (ScrEnemy.GetSetDeathFlag)
+        if (_ScrEnemy.GetSetDeathFlag)
         {
             GetComponent<BoxCollider>().enabled = false;
         }
